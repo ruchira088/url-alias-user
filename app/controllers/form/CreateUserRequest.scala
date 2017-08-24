@@ -23,8 +23,8 @@ object CreateUserRequest
   {
     Form(
       mapping(
-        "username" -> text,
         "email" -> email,
+        "username" -> text,
         "password" -> text
       )(CreateUserRequest.apply)(CreateUserRequest.unapply)
     )

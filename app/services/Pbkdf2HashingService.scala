@@ -4,14 +4,14 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.inject.Inject
 
-import models.Credentials
+import models.{Credentials, User}
 import utils.GeneralUtils
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class Pbkdf2HashingService @Inject()(implicit executionContext: ExecutionContext) extends HashingService
 {
-  def hash(password: String, salt: Option[String] = None): Future[Credentials] =
+  private def hash(password: String, salt: Option[String] = None): Future[Credentials] =
     Future {
 
       val keyFactory = SecretKeyFactory.getInstance(Pbkdf2HashingService.DEFAULT_KEY_FACTORY)
@@ -30,6 +30,11 @@ class Pbkdf2HashingService @Inject()(implicit executionContext: ExecutionContext
       Credentials(passwordHash, saltKey)
     }
 
+  override def hash(password: String): Future[Credentials] = hash(password, None)
+
+  override def isMatch(password: String, user: User): Future[Boolean] = for {
+    credentials <- hash(password, Some(user.credentials.salt))
+  } yield credentials.passwordHash == user.credentials.passwordHash
 }
 
 object Pbkdf2HashingService
