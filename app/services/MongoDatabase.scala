@@ -33,6 +33,9 @@ class MongoDatabase @Inject()(applicationLifecycle: ApplicationLifecycle)
   applicationLifecycle.addStopHook {
     () => for {
       connection <- Future.fromTry(connection)
-    } yield connection.close()
+    } yield {
+      println("Closing MongoDB connection")
+      connection.close()
+    }
   }
 }

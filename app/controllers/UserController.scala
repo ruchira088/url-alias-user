@@ -3,19 +3,24 @@ package controllers
 import javax.inject.{Inject, Singleton}
 
 import controllers.form.{CreateUserRequest, LoginUserRequest}
+import controllers.responses.LoginSuccess
 import exceptions.{InvalidCredentialsException, UserNotFoundException}
 import models.User
 import play.api.libs.json.Json
 import play.api.mvc._
 import reactivemongo.api.Cursor
 import reactivemongo.bson.document
-import services.{DatabaseService, HashingService}
-import utils.ScalaUtils
+import services.{AuthenticationTokenValue, AuthenticationTokens, DatabaseService, HashingService}
+import utils.{GeneralUtils, ScalaUtils}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
-class UserController @Inject() (controllerComponents: ControllerComponents, databaseService: DatabaseService, hashingService: HashingService)
+class UserController @Inject()(controllerComponents: ControllerComponents,
+                               databaseService: DatabaseService,
+                               hashingService: HashingService,
+                               authenticationTokens: AuthenticationTokens
+                              )
                                (implicit executionContext: ExecutionContext)
   extends AbstractController(controllerComponents)
 {
@@ -46,7 +51,9 @@ class UserController @Inject() (controllerComponents: ControllerComponents, data
         user <- fetchUser(loginUserRequest.username)
         isMatch <- hashingService.isMatch(loginUserRequest.password, user)
         _ <- if (isMatch) Future.successful(user) else Future.failed(InvalidCredentialsException)
-      } yield Ok(Json.obj("result" -> "success"))
+        token = GeneralUtils.getRandomUuid()
+        _ <- authenticationTokens.add(token, AuthenticationTokenValue(token, user.sanitize))
+      } yield Ok(Json.toJson(LoginSuccess(token)))
     } recover {
       case InvalidCredentialsException => Unauthorized(InvalidCredentialsException.toJson)
     }

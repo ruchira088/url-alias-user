@@ -1,21 +1,60 @@
-import java.util.UUID
-import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.PBEKeySpec
+import org.joda.time.DateTime
 
-val password = "123"
+val dateTime = DateTime.now()
 
-val KEY_LENGTH = 1024
+DateTime.parse(dateTime.toString)
 
-val HASHING_ITERATIONS = 1000
+import controllers.form.CreateUserRequest
+import models.{Credentials, User}
+import org.joda.time.DateTime
+import play.api.libs.json.{JsObject, Json, OFormat}
+import reactivemongo.bson.{BSONDocumentHandler, Macros}
+import utils.GeneralUtils
 
-val DEFAULT_KEY_FACTORY = "PBKDF2WithHmacSHA512"
+case class User(id: String, username: String, credentials: Credentials, email: String)
 
-val keyFactory = SecretKeyFactory.getInstance(DEFAULT_KEY_FACTORY)
+object User
+{
+  implicit val jsonFormat: OFormat[User] = Json.format[User]
 
-val salt = UUID.randomUUID().toString
+  implicit val bsonDocumentHandler: BSONDocumentHandler[User] = Macros.handler[User]
 
-val keySpec = new PBEKeySpec(
-  password.toCharArray, salt.getBytes, HASHING_ITERATIONS, KEY_LENGTH
-)
+  def apply(createUserRequest: CreateUserRequest, credentials: Credentials): User =
+  {
+    val CreateUserRequest(email, username, _) = createUserRequest
 
-keyFactory.generateSecret(keySpec).getEncoded.map(byte => Math.abs(byte.toInt).toChar).mkString
+    User(GeneralUtils.getRandomUuid(), username, credentials, email)
+  }
+}
+
+case class Credentials(passwordHash: String, salt: String)
+
+object Credentials
+{
+  implicit val jsonFormat: OFormat[Credentials] = Json.format[Credentials]
+
+  implicit val bsonDocumentHandler: BSONDocumentHandler[Credentials] = Macros.handler[Credentials]
+}
+
+case class AuthenticationTokenValue(token: String, user: User, expiryDate: DateTime)
+{
+  def toJson: JsObject = Json.obj("token" -> token, "user" -> Json.toJson(user), "expiryDate" -> expiryDate.toString)
+}
+
+object AuthenticationTokenValue
+{
+  def fromJson(jsObject: JsObject): Option[AuthenticationTokenValue] = for {
+    token <- (jsObject \ "token").toOption
+    user <- (jsObject \ "user").toOption.map(_.as[User])
+    expiryDate <- (jsObject \ "expiryDate").toOption.map(jsValue => DateTime.parse(jsValue.as[String]))
+  } yield AuthenticationTokenValue(token.toString, user, expiryDate)
+}
+
+val credentials = Credentials("password", "my")
+val user = User("id", "john", credentials, "email")
+
+val tokenValue = AuthenticationTokenValue("token", user, DateTime.now())
+
+val json = tokenValue.toJson
+
+AuthenticationTokenValue.fromJson(tokenValue.toJson)
