@@ -1,0 +1,3 @@
+package exceptions
+
+object InvalidAuthorizationTokenException extends Exception

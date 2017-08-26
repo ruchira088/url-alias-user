@@ -23,4 +23,5 @@ object AuthenticationTokenValue
     user <- (jsObject \ "user").toOption.map(_.as[User])
     expiryDate <- (jsObject \ "expiryDate").toOption.map(jsValue => DateTime.parse(jsValue.as[String]))
   } yield AuthenticationTokenValue(token.toString, user, expiryDate)
+
 }

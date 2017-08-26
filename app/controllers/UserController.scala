@@ -2,6 +2,7 @@ package controllers
 
 import javax.inject.{Inject, Singleton}
 
+import controllers.actions.AuthenticatedAction
 import controllers.form.{CreateUserRequest, LoginUserRequest}
 import controllers.responses.LoginSuccess
 import exceptions.{InvalidCredentialsException, UserNotFoundException}
@@ -19,7 +20,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class UserController @Inject()(controllerComponents: ControllerComponents,
                                databaseService: DatabaseService,
                                hashingService: HashingService,
-                               authenticationTokens: AuthenticationTokens
+                               authenticationTokens: AuthenticationTokens,
+                               authenticatedAction: AuthenticatedAction
                               )
                                (implicit executionContext: ExecutionContext)
   extends AbstractController(controllerComponents)
