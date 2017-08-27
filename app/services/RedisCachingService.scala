@@ -10,8 +10,7 @@ import redis.RedisClient
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
-class RedisCachingService @Inject() (applicationLifecycle: ApplicationLifecycle)
-                                    (implicit executionContext: ExecutionContext, actorSystem: ActorSystem)
+class RedisCachingService @Inject()(implicit executionContext: ExecutionContext, actorSystem: ActorSystem)
   extends CachingService
 {
   val redisClient: RedisClient = RedisClient(host = getRedisHost, port = getRedisHostPort)
@@ -25,12 +24,4 @@ class RedisCachingService @Inject() (applicationLifecycle: ApplicationLifecycle)
   def getRedisHost: String = "localhost"
 
   def getRedisHostPort: Int = 6379
-
-  applicationLifecycle.addStopHook {
-    () => {
-      println("Shutting down Redis client")
-      redisClient.quit()
-    }
-  }
-
 }

@@ -13,9 +13,11 @@ import scala.util.Try
 class MongoDatabase @Inject()(applicationLifecycle: ApplicationLifecycle)
                              (implicit executionContext: ExecutionContext) extends DatabaseService
 {
+  val mongoDriver = MongoDriver()
+
   val connection: Try[MongoConnection] =
     MongoConnection.parseURI(getMongoDbUri)
-      .map(MongoDriver().connection)
+      .map(mongoDriver.connection)
 
   def getDb(databaseName: String): Future[DefaultDB] = for {
     dbConnection <- Future.fromTry(connection)
@@ -31,11 +33,9 @@ class MongoDatabase @Inject()(applicationLifecycle: ApplicationLifecycle)
   def getDefaultDatabaseName: String = "url_alias_user"
 
   applicationLifecycle.addStopHook {
-    () => for {
-      connection <- Future.fromTry(connection)
-    } yield {
-      println("Closing MongoDB connection")
-      connection.close()
+    () => {
+      println("Closing mongoDriver...")
+      Future.successful(mongoDriver.close())
     }
   }
 }
