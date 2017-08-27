@@ -1,6 +1,8 @@
 package models
 
-trait ResponseModel[A]
+import play.api.libs.json.JsValue
+
+trait ResponseModel
 {
-  def toResponse: A
+  def toResponse: JsValue
 }

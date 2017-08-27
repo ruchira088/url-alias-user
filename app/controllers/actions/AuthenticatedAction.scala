@@ -6,7 +6,7 @@ import constants.HttpHeaders
 import controllers.requests.AuthenticatedRequest
 import exceptions.{IncorrectAuthorizationTokenException, InvalidAuthorizationTokenException}
 import play.api.mvc._
-import services.AuthenticationTokens
+import services.AuthenticationService
 import utils.FutureO
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -14,7 +14,7 @@ import scala.util.{Failure, Success, Try}
 
 class AuthenticatedAction @Inject()(
                                      parser: BodyParsers.Default,
-                                     authenticationTokens: AuthenticationTokens
+                                     authenticationService: AuthenticationService
                                    ) (implicit executionContext: ExecutionContext)
   extends ActionBuilderImpl(parser)
 {
@@ -23,7 +23,7 @@ class AuthenticatedAction @Inject()(
     val futureO: FutureO[Result] = for {
       authorizationHeader <- FutureO.fromOption(request.headers.get(HttpHeaders.AUTHORIZATION))
       tokenString <- FutureO.fromTry(AuthenticatedAction.getTokenFromHeader(authorizationHeader))
-      authenticationToken <- FutureO(authenticationTokens.get(tokenString))
+      authenticationToken <- authenticationService.getUserFromToken(tokenString)
       result <- FutureO.fromFuture(block(AuthenticatedRequest(authenticationToken.user, request)))
     } yield result
 

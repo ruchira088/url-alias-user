@@ -3,44 +3,32 @@ package controllers
 import javax.inject.{Inject, Singleton}
 
 import controllers.actions.AuthenticatedAction
+import controllers.actions.authorization.{AuthorizedActionBuilder, Read_Permission}
 import controllers.form.{CreateUserRequest, LoginUserRequest}
+import controllers.requests.AuthenticatedRequest
 import controllers.responses.LoginSuccess
-import exceptions.{InvalidCredentialsException, UserNotFoundException}
-import models.User
+import exceptions.InvalidCredentialsException
 import play.api.libs.json.Json
 import play.api.mvc._
-import reactivemongo.api.Cursor
-import reactivemongo.bson.document
-import services.{AuthenticationTokenValue, AuthenticationTokens, DatabaseService, HashingService}
-import utils.{GeneralUtils, ScalaUtils}
+import services._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
 class UserController @Inject()(controllerComponents: ControllerComponents,
-                               databaseService: DatabaseService,
-                               hashingService: HashingService,
-                               authenticationTokens: AuthenticationTokens,
-                               authenticatedAction: AuthenticatedAction
+                               authenticationService: AuthenticationService,
+                               userService: UserService,
+                               authenticatedAction: AuthenticatedAction,
+                               authorizedActionBuilder: AuthorizedActionBuilder
                               )
                                (implicit executionContext: ExecutionContext)
   extends AbstractController(controllerComponents)
 {
-  private def fetchUser(username: String): Future[User] = for {
-    userCollection <- databaseService.getCollection(UserController.USER_COLLECTION_NAME)
-    users <- userCollection.find(document("username" -> username)).cursor[User]().collect[List](1, Cursor.FailOnError[List[User]]())
-    user <- users match {
-      case Nil => Future.failed(UserNotFoundException(username))
-      case x :: _ => Future.successful(x)
-    }
-  } yield user
 
   def create(): Action[AnyContent] = Action.async {
     implicit request: Request[AnyContent] => for {
       createUserRequest <- Future.fromTry(CreateUserRequest.fromRequest)
-      credentials <- hashingService.hash(createUserRequest.password)
-      collection <- databaseService.getCollection(UserController.USER_COLLECTION_NAME)
-      writeResult <- collection.insert(User(createUserRequest, credentials)) if writeResult.ok
+      writeResult <- userService.create(createUserRequest) if writeResult.ok
     } yield {
       Ok(createUserRequest.toJson)
     }
@@ -50,14 +38,20 @@ class UserController @Inject()(controllerComponents: ControllerComponents,
     implicit request: Request[AnyContent] => {
       for {
         loginUserRequest <- Future.fromTry(LoginUserRequest.fromRequest)
-        user <- fetchUser(loginUserRequest.username)
-        isMatch <- hashingService.isMatch(loginUserRequest.password, user)
-        _ <- if (isMatch) Future.successful(user) else Future.failed(InvalidCredentialsException)
-        token = GeneralUtils.getRandomUuid()
-        _ <- authenticationTokens.add(token, AuthenticationTokenValue(token, user.sanitize))
-      } yield Ok(Json.toJson(LoginSuccess(token)))
+        authenticationTokenValue <- authenticationService.authenticate(loginUserRequest)
+      } yield Ok(Json.toJson(LoginSuccess(authenticationTokenValue.token)))
     } recover {
       case InvalidCredentialsException => Unauthorized(InvalidCredentialsException.toJson)
+    }
+  }
+
+  def fetch(username: String): Action[AnyContent] = authenticatedAction
+    .andThen(authorizedActionBuilder.create(username, Read_Permission)).async {
+    implicit request: Request[AnyContent] => request match {
+      case AuthenticatedRequest(authenticatedUser, _) =>
+        if (authenticatedUser.username == username)
+          Future.successful(Ok(authenticatedUser.toResponse))
+        else userService.fetch(username).map(user => Ok(user.toResponse))
     }
   }
 }

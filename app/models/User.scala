@@ -5,13 +5,13 @@ import play.api.libs.json.{Json, OFormat}
 import reactivemongo.bson.{BSONDocumentHandler, Macros}
 import utils.GeneralUtils
 
-case class User(id: String, username: String, credentials: Credentials, email: String) extends ResponseModel[User]
+case class User(id: String, username: String, credentials: Credentials, email: String) extends ResponseModel
 {
   user =>
 
   def sanitize: User = user.copy(credentials = Credentials.empty)
 
-  override def toResponse = user.sanitize
+  override def toResponse = Json.toJson(user.sanitize)
 }
 
 object User

@@ -29,7 +29,7 @@ class RedisCachingService @Inject() (applicationLifecycle: ApplicationLifecycle)
   applicationLifecycle.addStopHook {
     () => {
       println("Shutting down Redis client")
-      redisClient.shutdown()
+      redisClient.quit()
     }
   }
 
