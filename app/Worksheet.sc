@@ -5,7 +5,6 @@ val dateTime = DateTime.now()
 DateTime.parse(dateTime.toString)
 
 import controllers.form.CreateUserRequest
-import models.{Credentials, User}
 import org.joda.time.DateTime
 import play.api.libs.json.{JsObject, Json, OFormat}
 import reactivemongo.bson.{BSONDocumentHandler, Macros}

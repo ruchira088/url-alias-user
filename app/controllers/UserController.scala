@@ -7,7 +7,7 @@ import controllers.actions.authorization.{AuthorizedActionBuilder, Read_Permissi
 import controllers.form.{CreateUserRequest, LoginUserRequest}
 import controllers.requests.AuthenticatedRequest
 import controllers.responses.LoginSuccess
-import exceptions.InvalidCredentialsException
+import exceptions.{ErrorResponse, InvalidCredentialsException, PermissionDeniedException}
 import play.api.libs.json.Json
 import play.api.mvc._
 import services._
@@ -26,11 +26,15 @@ class UserController @Inject()(controllerComponents: ControllerComponents,
 {
 
   def create(): Action[AnyContent] = Action.async {
-    implicit request: Request[AnyContent] => for {
-      createUserRequest <- Future.fromTry(CreateUserRequest.fromRequest)
-      writeResult <- userService.create(createUserRequest) if writeResult.ok
-    } yield {
-      Ok(createUserRequest.toJson)
+    implicit request: Request[AnyContent] => {
+      for {
+        createUserRequest <- Future.fromTry(CreateUserRequest.fromRequest)
+        writeResult <- userService.create(createUserRequest) if writeResult.ok
+      } yield {
+        Ok(createUserRequest.toJson)
+      }
+    } recover {
+      case errorResponse: ErrorResponse => errorResponse.toResponse
     }
   }
 
@@ -41,22 +45,18 @@ class UserController @Inject()(controllerComponents: ControllerComponents,
         authenticationTokenValue <- authenticationService.authenticate(loginUserRequest)
       } yield Ok(Json.toJson(LoginSuccess(authenticationTokenValue.token)))
     } recover {
-      case InvalidCredentialsException => Unauthorized(InvalidCredentialsException.toJson)
+      case errorResponse: ErrorResponse => errorResponse.toResponse
     }
   }
 
   def fetch(username: String): Action[AnyContent] = authenticatedAction
     .andThen(authorizedActionBuilder.create(username, Read_Permission)).async {
-    implicit request: Request[AnyContent] => request match {
-      case AuthenticatedRequest(authenticatedUser, _) =>
-        if (authenticatedUser.username == username)
-          Future.successful(Ok(authenticatedUser.toResponse))
-        else userService.fetch(username).map(user => Ok(user.toResponse))
-    }
+    implicit request: Request[AnyContent] =>
+      request match {
+        case AuthenticatedRequest(authenticatedUser, _) =>
+          if (authenticatedUser.username == username)
+            Future.successful(Ok(authenticatedUser.toResponse))
+          else userService.fetch(username).map(user => Ok(user.toResponse))
+      }
   }
-}
-
-object UserController
-{
-  val USER_COLLECTION_NAME = "users"
 }

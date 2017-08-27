@@ -1,8 +1,11 @@
 package exceptions
 
 import play.api.libs.json.{JsObject, Json}
+import play.api.mvc.Results
 
-object InvalidCredentialsException extends Exception
+object InvalidCredentialsException extends Exception with ErrorResponse
 {
-  def toJson: JsObject = Json.obj("result" -> "Invalid credentials")
+  override def getMessage = "Invalid credentials"
+
+  override def status = Results.Unauthorized
 }

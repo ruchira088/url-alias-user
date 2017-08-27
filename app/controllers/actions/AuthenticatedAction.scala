@@ -4,7 +4,7 @@ import javax.inject.Inject
 
 import constants.HttpHeaders
 import controllers.requests.AuthenticatedRequest
-import exceptions.{IncorrectAuthorizationTokenException, InvalidAuthorizationTokenException}
+import exceptions.{ErrorResponse, IncorrectAuthorizationTokenException, InvalidAuthorizationTokenException}
 import play.api.mvc._
 import services.AuthenticationService
 import utils.FutureO
@@ -30,13 +30,15 @@ class AuthenticatedAction @Inject()(
     futureO.future.flatMap {
       case Some(result) => Future.successful(result)
       case None => Future.failed(IncorrectAuthorizationTokenException)
+    } recover {
+      case errorResponse: ErrorResponse => errorResponse.toResponse
     }
   }
 }
 
 object AuthenticatedAction
 {
-  def getTokenFromHeader(header: String): Try[String] = header.trim.split(" ").toList match {
+  def getTokenFromHeader(authorizationHeader: String): Try[String] = authorizationHeader.trim.split(" ").toList match {
     case List("Bearer", token) => Success(token)
     case _ => Failure(InvalidAuthorizationTokenException)
   }
